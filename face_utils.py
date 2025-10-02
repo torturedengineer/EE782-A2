@@ -6,7 +6,7 @@ from deepface import DeepFace
 KNOWN_FACES_DIR = "faces"
 MODEL_NAME = "VGG-Face"
 DETECTOR_BACKEND = 'opencv'
-RECOGNITION_THRESHOLD = 0.50
+RECOGNITION_THRESHOLD = 0.60
 ENCODINGS_CACHE_PATH = "face_encodings.pkl"
 
 known_face_encodings = []

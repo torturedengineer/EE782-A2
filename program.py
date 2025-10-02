@@ -8,7 +8,7 @@ import time
 import os
 import io
 import numpy as np
-from playsound import playsound # Replaced pyttsx3
+from playsound import playsound
 from dotenv import load_dotenv
 from collections import deque
 from deepface import DeepFace
@@ -25,6 +25,10 @@ from llm_handler import generate_escalation_dialogue
 ACTIVATION_KEYWORDS = ["protect", "room"]
 DEACTIVATION_KEYWORDS = ["stop", "protecting"]
 CAMERA_WARMUP_TIME = 2.0
+
+# --- NEW HYPERPARAMETER ---
+FRAMES_TO_PROCESS_PER_SECOND = 2  # Process N frames every second to reduce load and prevent freezing
+
 MODEL_NAME = "VGG-Face"
 DETECTOR_BACKEND = 'opencv'
 
@@ -44,6 +48,7 @@ last_user_response = deque(maxlen=1)
 next_object_id = 0
 objects = {}
 object_dossiers = {}
+last_known_faces = [] # Store the last detected face info to draw between processing frames
 
 class Intruder:
     def __init__(self, object_id):
@@ -62,13 +67,12 @@ class Intruder:
             self.escalation_level = min(self.escalation_level + 1, 3)
         self.last_interaction_time = time.time()
 
-# --- NEW: Replaced TTS engine with playsound function ---
 def speak(audio_file):
     """Plays the generated audio file and then deletes it."""
     try:
         print(f"▶️ Playing audio...")
         playsound(audio_file)
-        os.remove(audio_file) # Clean up the temp file
+        os.remove(audio_file)
     except Exception as e:
         print(f"❌ Could not play audio: {e}")
 
@@ -117,7 +121,7 @@ def continuous_listening_thread():
     print("Deactivation listener has stopped.")
 
 def start_guard_mode():
-    global guard_mode_active, stop_listening_event, next_object_id, objects, object_dossiers, last_user_response
+    global guard_mode_active, stop_listening_event, next_object_id, objects, object_dossiers, last_user_response, last_known_faces
     
     guard_mode_active = True; stop_listening_event.clear(); last_command.clear(); last_user_response.clear()
     next_object_id = 0; objects = {}; object_dossiers = {}
@@ -133,84 +137,117 @@ def start_guard_mode():
     if not cap.isOpened():
         print("Error: Could not open webcam."); guard_mode_active = False; return
 
+    # --- Frame skipping logic setup ---
+    frame_count = 0
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps == 0: fps = 30 # Assume a standard 30 FPS if not reported
+    frame_skip_interval = max(1, int(fps / FRAMES_TO_PROCESS_PER_SECOND))
+    last_known_faces.clear()
+
     while guard_mode_active:
         ret, frame = cap.read()
         if not ret: break
-        try:
-            live_objs = DeepFace.represent(img_path=frame, model_name=MODEL_NAME, enforce_detection=False, detector_backend=DETECTOR_BACKEND)
-            rects = [(obj['facial_area']['x'], obj['facial_area']['y'], obj['facial_area']['w'], obj['facial_area']['h']) for obj in live_objs]
-            input_centroids = np.array([(x + w // 2, y + h // 2) for x, y, w, h in rects], dtype="int")
-            
-            if len(objects) == 0:
-                for i in range(len(input_centroids)):
-                    objects[next_object_id] = input_centroids[i]
-                    object_dossiers[next_object_id] = {'id': next_object_id, 'history': deque(maxlen=INTRUDER_PERSISTENCE_FRAMES), 'handler': None}
-                    next_object_id += 1
-            else:
-                object_ids = list(objects.keys()); object_centroids = list(objects.values())
-                D = dist.cdist(np.array(object_centroids), input_centroids)
-                rows = D.min(axis=1).argsort(); cols = D.argmin(axis=1)[rows]
-                used_rows, used_cols = set(), set()
-                for (row, col) in zip(rows, cols):
-                    if row in used_rows or col in used_cols: continue
-                    object_id = object_ids[row]; objects[object_id] = input_centroids[col]; used_rows.add(row); used_cols.add(col)
-                unused_rows = set(range(D.shape[0])).difference(used_rows); unused_cols = set(range(D.shape[1])).difference(used_cols)
-                if D.shape[0] > len(input_centroids):
-                    for row in unused_rows:
-                        object_id = object_ids[row]
-                        if object_id in objects:
-                            del objects[object_id]
-                        if object_id in object_dossiers:
-                            del object_dossiers[object_id]
+        
+        frame_count += 1
+        process_this_frame = (frame_count % frame_skip_interval == 0)
 
-                for col in unused_cols:
-                    objects[next_object_id] = input_centroids[col]
-                    object_dossiers[next_object_id] = {'id': next_object_id, 'history': deque(maxlen=INTRUDER_PERSISTENCE_FRAMES), 'handler': None}
-                    next_object_id += 1
+        if process_this_frame:
+            try:
+                # This block now only runs periodically
+                current_faces_info = []
+                # Use a copy of the frame for processing to avoid race conditions
+                processing_frame = frame.copy()
 
-            for live_obj in live_objs:
-                centroid = (live_obj['facial_area']['x'] + live_obj['facial_area']['w'] // 2, live_obj['facial_area']['y'] + live_obj['facial_area']['h'] // 2)
-                object_id_for_face = next((oid for oid, c in objects.items() if np.array_equal(c, centroid)), None)
-                if object_id_for_face is None: continue
-
-                name, _ = find_best_match(live_obj["embedding"])
+                live_objs = DeepFace.represent(img_path=processing_frame, model_name=MODEL_NAME, enforce_detection=False, detector_backend=DETECTOR_BACKEND)
+                rects = [(obj['facial_area']['x'], obj['facial_area']['y'], obj['facial_area']['w'], obj['facial_area']['h']) for obj in live_objs]
+                input_centroids = np.array([(x + w // 2, y + h // 2) for x, y, w, h in rects], dtype="int")
                 
-                if object_id_for_face not in object_dossiers: continue
-                
-                object_dossiers[object_id_for_face]['history'].append(name)
-                history = object_dossiers[object_id_for_face]['history']
-                stable_name = max(set(history), key=history.count) if history else "INTRUDER"
-                
-                if stable_name == "INTRUDER" and len(history) == INTRUDER_PERSISTENCE_FRAMES and all(h == "INTRUDER" for h in history):
-                    handler = object_dossiers[object_id_for_face]['handler']
-                    if handler is None:
-                        handler = Intruder(object_id_for_face)
-                        object_dossiers[object_id_for_face]['handler'] = handler
+                if len(objects) == 0:
+                    for i in range(len(input_centroids)):
+                        objects[next_object_id] = input_centroids[i]
+                        object_dossiers[next_object_id] = {'id': next_object_id, 'history': deque(maxlen=INTRUDER_PERSISTENCE_FRAMES), 'handler': None}
+                        next_object_id += 1
+                else:
+                    object_ids = list(objects.keys()); object_centroids = list(objects.values())
+                    if len(input_centroids) > 0:
+                        D = dist.cdist(np.array(object_centroids), input_centroids)
+                        rows = D.min(axis=1).argsort(); cols = D.argmin(axis=1)[rows]
+                        used_rows, used_cols = set(), set()
+                        for (row, col) in zip(rows, cols):
+                            if row in used_rows or col in used_cols: continue
+                            object_id = object_ids[row]; objects[object_id] = input_centroids[col]; used_rows.add(row); used_cols.add(col)
+                        
+                        unused_rows = set(range(D.shape[0])).difference(used_rows)
+                        unused_cols = set(range(D.shape[1])).difference(used_cols)
 
-                    user_input = last_user_response.popleft() if last_user_response else None
-                    should_speak = False
+                        if D.shape[0] >= len(input_centroids):
+                            for row in unused_rows:
+                                object_id = object_ids[row]
+                                if object_id in objects: del objects[object_id]
+                                if object_id in object_dossiers: del object_dossiers[object_id]
+                        
+                        for col in unused_cols:
+                            objects[next_object_id] = input_centroids[col]
+                            object_dossiers[next_object_id] = {'id': next_object_id, 'history': deque(maxlen=INTRUDER_PERSISTENCE_FRAMES), 'handler': None}
+                            next_object_id += 1
+                    else: # No faces detected in this frame, clear old objects
+                        objects.clear()
+                        object_dossiers.clear()
+
+
+                for live_obj in live_objs:
+                    centroid = (live_obj['facial_area']['x'] + live_obj['facial_area']['w'] // 2, live_obj['facial_area']['y'] + live_obj['facial_area']['h'] // 2)
+                    object_id_for_face = next((oid for oid, c in objects.items() if np.array_equal(c, centroid)), None)
+                    if object_id_for_face is None or object_id_for_face not in object_dossiers: continue
+
+                    name, _ = find_best_match(live_obj["embedding"])
                     
-                    if user_input:
-                        should_speak = True
-                        handler.last_interaction_time = time.time()
-                    elif handler.should_escalate_on_timer():
-                        should_speak = True
-                        handler.increment_level_and_update_time()
+                    object_dossiers[object_id_for_face]['history'].append(name)
+                    history = object_dossiers[object_id_for_face]['history']
+                    stable_name = max(set(history), key=history.count) if history else "INTRUDER"
+                    
+                    if stable_name == "INTRUDER" and len(history) == INTRUDER_PERSISTENCE_FRAMES and all(h == "INTRUDER" for h in history):
+                        handler = object_dossiers[object_id_for_face]['handler']
+                        if handler is None:
+                            handler = Intruder(object_id_for_face)
+                            object_dossiers[object_id_for_face]['handler'] = handler
 
-                    if should_speak:
-                        audio_file = generate_escalation_dialogue(handler.id, handler.escalation_level, user_input=user_input)
-                        if audio_file:
-                            speak(audio_file)
+                        user_input = last_user_response.popleft() if last_user_response else None
+                        should_speak = False
+                        
+                        if user_input:
+                            should_speak = True; handler.last_interaction_time = time.time()
+                        elif handler.should_escalate_on_timer():
+                            should_speak = True; handler.increment_level_and_update_time()
 
-                facial_area = live_obj['facial_area']
-                x, y, w, h = facial_area['x'], facial_area['y'], facial_area['w'], facial_area['h']
-                
-                box_color = (0, 0, 255) if stable_name == "INTRUDER" else (0, 255, 0)
-                cv2.rectangle(frame, (x, y), (x + w, y + h), box_color, 2)
-                cv2.rectangle(frame, (x, y - 35), (x + w, y), box_color, cv2.FILLED)
-                cv2.putText(frame, stable_name, (x + 6, y - 6), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 1)
-        except Exception as e:
-            print(f"❌ Error in main loop: {e}")
+                        if should_speak:
+                            audio_file = generate_escalation_dialogue(handler.id, handler.escalation_level, user_input=user_input)
+                            if audio_file:
+                                speak(audio_file)
+
+                    facial_area = live_obj['facial_area']
+                    x, y, w, h = facial_area['x'], facial_area['y'], facial_area['w'], facial_area['h']
+                    box_color = (0, 0, 255) if stable_name == "INTRUDER" else (0, 255, 0)
+                    
+                    current_faces_info.append({
+                        "box": (x, y, w, h),
+                        "name": stable_name,
+                        "color": box_color
+                    })
+
+                last_known_faces = current_faces_info # Update the list for drawing
+
+            except Exception as e:
+                print(f"❌ Error in main loop: {e}")
+        
+        # --- Drawing logic now runs EVERY frame, using the last known data ---
+        for face_info in last_known_faces:
+            x, y, w, h = face_info["box"]
+            stable_name = face_info["name"]
+            box_color = face_info["color"]
+            cv2.rectangle(frame, (x, y), (x + w, y + h), box_color, 2)
+            cv2.rectangle(frame, (x, y - 35), (x + w, y), box_color, cv2.FILLED)
+            cv2.putText(frame, stable_name, (x + 6, y - 6), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 1)
 
         cv2.imshow('Security Feed - Press Q to Quit', frame)
         try:
@@ -228,7 +265,6 @@ def main():
         print("!!! FATAL ERROR: GOOGLE_API_KEY not found in .env file. !!!")
         sys.exit(1)
     
-    # Removed initialize_tts() as it's no longer needed
     precompute_known_faces()
     print("🚀 Security Agent Initialized.\n")
 
