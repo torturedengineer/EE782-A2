@@ -1,5 +1,5 @@
 import pyaudio
-import speech_recognition as sr  # Replaced requests with speech_recognition
+import speech_recognition as sr
 import wave
 import threading
 import cv2
@@ -8,7 +8,7 @@ import time
 import os
 import io
 import numpy as np
-import pyttsx3
+from playsound import playsound # Replaced pyttsx3
 from dotenv import load_dotenv
 from collections import deque
 from deepface import DeepFace
@@ -22,9 +22,8 @@ from face_utils import precompute_known_faces, find_best_match
 from llm_handler import generate_escalation_dialogue
 
 # --- Configuration ---
-# Removed Hugging Face API key and URL
-ACTIVATION_KEYWORDS = ["guard", "room"]
-DEACTIVATION_KEYWORDS = ["stop", "guarding"]
+ACTIVATION_KEYWORDS = ["protect", "room"]
+DEACTIVATION_KEYWORDS = ["stop", "protecting"]
 CAMERA_WARMUP_TIME = 2.0
 MODEL_NAME = "VGG-Face"
 DETECTOR_BACKEND = 'opencv'
@@ -42,7 +41,6 @@ guard_mode_active = False
 stop_listening_event = threading.Event()
 last_command = deque(maxlen=1)
 last_user_response = deque(maxlen=1)
-tts_engine = None
 next_object_id = 0
 objects = {}
 object_dossiers = {}
@@ -64,16 +62,16 @@ class Intruder:
             self.escalation_level = min(self.escalation_level + 1, 3)
         self.last_interaction_time = time.time()
 
-def initialize_tts():
-    global tts_engine
-    try: tts_engine = pyttsx3.init(); print("✅ TTS Engine Initialized.")
-    except Exception as e: print(f"❌ Could not initialize TTS engine: {e}")
+# --- NEW: Replaced TTS engine with playsound function ---
+def speak(audio_file):
+    """Plays the generated audio file and then deletes it."""
+    try:
+        print(f"▶️ Playing audio...")
+        playsound(audio_file)
+        os.remove(audio_file) # Clean up the temp file
+    except Exception as e:
+        print(f"❌ Could not play audio: {e}")
 
-def speak(text):
-    if tts_engine: print(f"🤖 AGENT SAYS: {text}"); tts_engine.say(text); tts_engine.runAndWait()
-    else: print(f"🤖 AGENT (TTS not working): {text}")
-
-# --- NEW: Replaced query_whisper with Google Speech Recognition ---
 def recognize_speech(wav_data):
     """Transcribes audio data using Google's Web Speech API."""
     recognizer = sr.Recognizer()
@@ -101,7 +99,6 @@ def listen_and_process_command(is_guarding):
             wf.setnchannels(CHANNELS); wf.setsampwidth(audio.get_sample_size(FORMAT)); wf.setframerate(RATE); wf.writeframes(b''.join(frames))
         wav_bytes = audio_buffer.getvalue()
     
-    # Use the new recognition function
     transcription = recognize_speech(wav_bytes)
 
     if transcription:
@@ -201,8 +198,9 @@ def start_guard_mode():
                         handler.increment_level_and_update_time()
 
                     if should_speak:
-                        dialogue = generate_escalation_dialogue(handler.id, handler.escalation_level, user_input=user_input)
-                        speak(dialogue)
+                        audio_file = generate_escalation_dialogue(handler.id, handler.escalation_level, user_input=user_input)
+                        if audio_file:
+                            speak(audio_file)
 
                 facial_area = live_obj['facial_area']
                 x, y, w, h = facial_area['x'], facial_area['y'], facial_area['w'], facial_area['h']
@@ -226,12 +224,12 @@ def start_guard_mode():
 def main():
     global guard_mode_active, stop_listening_event
 
-    # Updated API key check
     if not os.getenv("GOOGLE_API_KEY"):
         print("!!! FATAL ERROR: GOOGLE_API_KEY not found in .env file. !!!")
         sys.exit(1)
     
-    initialize_tts(); precompute_known_faces()
+    # Removed initialize_tts() as it's no longer needed
+    precompute_known_faces()
     print("🚀 Security Agent Initialized.\n")
 
     while True:
@@ -252,3 +250,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
