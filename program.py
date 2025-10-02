@@ -14,19 +14,22 @@ from collections import deque
 from deepface import DeepFace
 from scipy.spatial import distance as dist
 
+# --- Load Environment Variables ---
+load_dotenv()
+
 # --- Import our custom modules ---
 from face_utils import precompute_known_faces, find_best_match
 from llm_handler import generate_escalation_dialogue
 
-# --- Load Environment Variables ---
-load_dotenv()
-
 # --- Configuration ---
 API_KEY = os.getenv("HUGGING_FACE_API_KEY") # For Whisper
+api_key = os.getenv("GOOGLE_API_KEY") # gemini, covo ai
 WHISPER_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3"
 ACTIVATION_KEYWORDS = ["guard", "room"]
 DEACTIVATION_KEYWORDS = ["stop", "guarding"]
 CAMERA_WARMUP_TIME = 2.0
+MODEL_NAME = "VGG-Face" # Moved from face_utils for use here
+DETECTOR_BACKEND = 'opencv' # Moved from face_utils for use here
 
 # Intruder Management Config
 INTRUDER_PERSISTENCE_FRAMES = 10
@@ -46,7 +49,6 @@ objects = {}
 object_dossiers = {}
 
 class Intruder:
-    # (This class is unchanged)
     def __init__(self, object_id):
         self.id = object_id; self.escalation_level = 0; self.last_warning_time = 0; self.name = "INTRUDER"
     def escalate(self):
@@ -57,7 +59,6 @@ class Intruder:
             return True
         return False
 
-# (TTS, Whisper, and listening functions are mostly unchanged)
 def initialize_tts():
     global tts_engine
     try: tts_engine = pyttsx3.init(); print("✅ TTS Engine Initialized.")
@@ -101,10 +102,10 @@ def continuous_listening_thread():
     while guard_mode_active and not stop_listening_event.is_set(): listen_and_process_command(is_guarding=True)
     print("Deactivation listener has stopped.")
 
-# --- Main Guard Mode Logic (Now uses LLM) ---
-
 def start_guard_mode():
-    guard_mode_active, stop_listening_event, next_object_id, objects, object_dossiers
+    # --- BUG FIX: Explicitly declare all global variables being modified ---
+    global guard_mode_active, stop_listening_event, next_object_id, objects, object_dossiers
+    
     guard_mode_active = True; stop_listening_event.clear(); last_command.clear()
     next_object_id = 0; objects = {}; object_dossiers = {}
 
@@ -124,10 +125,9 @@ def start_guard_mode():
         if not ret: break
         try:
             live_objs = DeepFace.represent(img_path=frame, model_name=MODEL_NAME, enforce_detection=False, detector_backend=DETECTOR_BACKEND)
-            rects = [tuple(obj['facial_area'].values()) for obj in live_objs]
+            rects = [(obj['facial_area']['x'], obj['facial_area']['y'], obj['facial_area']['w'], obj['facial_area']['h']) for obj in live_objs]
             input_centroids = np.array([(x + w // 2, y + h // 2) for x, y, w, h in rects], dtype="int")
             
-            # (Centroid tracking logic remains the same)
             if len(objects) == 0:
                 for i in range(len(input_centroids)):
                     objects[next_object_id] = input_centroids[i]
@@ -158,7 +158,6 @@ def start_guard_mode():
                 history = object_dossiers[object_id_for_face]['history']
                 stable_name = max(set(history), key=history.count) if history else "INTRUDER"
                 
-                # --- LLM ESCALATION LOGIC ---
                 if stable_name == "INTRUDER" and len(history) == INTRUDER_PERSISTENCE_FRAMES and all(h == "INTRUDER" for h in history):
                     handler = object_dossiers[object_id_for_face]['handler']
                     if handler is None:
@@ -166,15 +165,20 @@ def start_guard_mode():
                         object_dossiers[object_id_for_face]['handler'] = handler
                     
                     if handler.escalate():
-                        dialogue = generate_escalation_dialogue(handler.escalation_level)
+                        dialogue = generate_escalation_dialogue(handler.id, handler.escalation_level)
                         speak(dialogue)
 
-                x,y,w,h = live_obj['facial_area'].values()
+                # FIX for "too many values to unpack"
+                facial_area = live_obj['facial_area']
+                x, y, w, h = facial_area['x'], facial_area['y'], facial_area['w'], facial_area['h']
+                
                 box_color = (0, 0, 255) if stable_name == "INTRUDER" else (0, 255, 0)
                 cv2.rectangle(frame, (x, y), (x + w, y + h), box_color, 2)
                 cv2.rectangle(frame, (x, y - 35), (x + w, y), box_color, cv2.FILLED)
                 cv2.putText(frame, stable_name, (x + 6, y - 6), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 1)
-        except Exception as e: pass
+        except Exception as e:
+            # THIS IS THE FIX: Print the error instead of ignoring it.
+            print(f"❌ Error in main loop: {e}")
 
         cv2.imshow('Security Feed - Press Q to Quit', frame)
         try:
@@ -186,6 +190,9 @@ def start_guard_mode():
     listener_thread.join(timeout=1.0); print("\n--- 🛑 GUARD MODE DEACTIVATED ---")
 
 def main():
+    # --- BUG FIX: Explicitly declare all global variables being modified ---
+    global guard_mode_active, stop_listening_event
+
     if not API_KEY or not os.getenv("GOOGLE_API_KEY"):
         print("!!! FATAL ERROR: API key(s) not found in .env file. !!!")
         print("Please ensure both HUGGING_FACE_API_KEY and GOOGLE_API_KEY are set in your .env file.")
@@ -205,7 +212,11 @@ def main():
                 except IndexError: pass
             time.sleep(0.05) 
         except KeyboardInterrupt:
-            print("\nExiting program..."); guard_mode_active; guard_mode_active = False; stop_listening_event.set(); break
+            print("\nExiting program...");
+            guard_mode_active = False;
+            stop_listening_event.set();
+            break
 
 if __name__ == "__main__":
     main()
+
