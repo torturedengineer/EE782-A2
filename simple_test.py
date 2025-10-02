@@ -1,14 +1,15 @@
-#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
 import requests
 import pyaudio
 import sys
+import wave
+import io
 
 # --- Configuration ---
 WHISPER_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3"
 
 # --- ⬇️ PASTE YOUR HUGGING FACE 'WRITE' API KEY HERE ⬇️ ---
 # Get one from https://huggingface.co/settings/tokens
-hf_api_key = "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"
+hf_api_key = "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"
 # -----------------------------------------------------------
 
 # Audio recording parameters
@@ -21,7 +22,7 @@ RECORD_SECONDS = 4
 def main():
     """Records audio, sends it to Whisper, and prints the result."""
     # --- API Key Check ---
-    if hf_api_key == "hf_YOUR_WRITE_API_KEY_HERE" or not hf_api_key:
+    if "YOUR_WRITE_API_KEY_HERE" in hf_api_key or not hf_api_key:
         print("!!! ERROR: Please edit the script (line 9) and paste your 'write' API key. !!!")
         sys.exit(1)
 
@@ -39,12 +40,27 @@ def main():
     stream.stop_stream()
     stream.close()
     audio.terminate()
-    audio_data = b''.join(frames)
 
-    # --- 2. Call API ---
-    headers = {"Authorization": f"Bearer {hf_api_key}"}
+    # --- FIX #1: Package the raw audio into a valid WAV format in memory ---
+    audio_data_in_memory = io.BytesIO()
+    with wave.open(audio_data_in_memory, 'wb') as wf:
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(audio.get_sample_size(FORMAT))
+        wf.setframerate(RATE)
+        wf.writeframes(b''.join(frames))
+    wav_bytes = audio_data_in_memory.getvalue()
+    # --------------------------------------------------------------------
+
+    # --- FIX #2: Add the Content-Type header ---
+    headers = {
+        "Authorization": f"Bearer {hf_api_key}",
+        "Content-Type": "audio/wav"
+    }
+    # ---------------------------------------------
+
     try:
-        response = requests.post(WHISPER_API_URL, headers=headers, data=audio_data, timeout=20)
+        # Send the corrected WAV data
+        response = requests.post(WHISPER_API_URL, headers=headers, data=wav_bytes, timeout=20)
         
         if response.status_code == 200:
             result = response.json()
@@ -52,7 +68,6 @@ def main():
             print("\n✅ SUCCESS!")
             print(f'Whisper heard: "{transcription}"')
         else:
-            # Provide a clean error message
             print(f"\n❌ FAILED! API returned Status Code: {response.status_code}")
             try:
                 error_details = response.json()
