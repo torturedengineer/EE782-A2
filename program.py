@@ -1,5 +1,5 @@
 import pyaudio
-import requests
+import speech_recognition as sr  # Replaced requests with speech_recognition
 import wave
 import threading
 import cv2
@@ -14,7 +14,7 @@ from collections import deque
 from deepface import DeepFace
 from scipy.spatial import distance as dist
 
-# --- Load Environment Variables ---
+# --- Load Environment Variables FIRST ---
 load_dotenv()
 
 # --- Import our custom modules ---
@@ -22,18 +22,16 @@ from face_utils import precompute_known_faces, find_best_match
 from llm_handler import generate_escalation_dialogue
 
 # --- Configuration ---
-API_KEY = os.getenv("HUGGING_FACE_API_KEY") # For Whisper
-api_key = os.getenv("GOOGLE_API_KEY") # gemini, covo ai
-WHISPER_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3"
+# Removed Hugging Face API key and URL
 ACTIVATION_KEYWORDS = ["guard", "room"]
 DEACTIVATION_KEYWORDS = ["stop", "guarding"]
 CAMERA_WARMUP_TIME = 2.0
-MODEL_NAME = "VGG-Face" # Moved from face_utils for use here
-DETECTOR_BACKEND = 'opencv' # Moved from face_utils for use here
+MODEL_NAME = "VGG-Face"
+DETECTOR_BACKEND = 'opencv'
 
-# Intruder Management Config
-INTRUDER_PERSISTENCE_FRAMES = 10
-ESCALATION_DELAY_SECONDS = 15
+# --- Intruder Management Config: TUNED FOR RESPONSIVENESS ---
+INTRUDER_PERSISTENCE_FRAMES = 5
+ESCALATION_DELAY_SECONDS = 8
 
 # Audio recording parameters
 FORMAT = pyaudio.paInt16
@@ -43,6 +41,7 @@ CHANNELS = 1; RATE = 16000; CHUNK = 1024; RECORD_SECONDS = 4
 guard_mode_active = False
 stop_listening_event = threading.Event()
 last_command = deque(maxlen=1)
+last_user_response = deque(maxlen=1)
 tts_engine = None
 next_object_id = 0
 objects = {}
@@ -50,14 +49,20 @@ object_dossiers = {}
 
 class Intruder:
     def __init__(self, object_id):
-        self.id = object_id; self.escalation_level = 0; self.last_warning_time = 0; self.name = "INTRUDER"
-    def escalate(self):
-        current_time = time.time()
-        if current_time - self.last_warning_time > ESCALATION_DELAY_SECONDS:
+        self.id = object_id
+        self.escalation_level = 0
+        self.last_interaction_time = 0
+        self.name = "INTRUDER"
+
+    def should_escalate_on_timer(self):
+        return time.time() - self.last_interaction_time > ESCALATION_DELAY_SECONDS
+
+    def increment_level_and_update_time(self):
+        if self.escalation_level == 0:
+             self.escalation_level = 1
+        else:
             self.escalation_level = min(self.escalation_level + 1, 3)
-            self.last_warning_time = current_time
-            return True
-        return False
+        self.last_interaction_time = time.time()
 
 def initialize_tts():
     global tts_engine
@@ -68,16 +73,21 @@ def speak(text):
     if tts_engine: print(f"🤖 AGENT SAYS: {text}"); tts_engine.say(text); tts_engine.runAndWait()
     else: print(f"🤖 AGENT (TTS not working): {text}")
 
-def query_whisper(audio_data):
-    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "audio/wav"}
-    for _ in range(3):
-        try:
-            response = requests.post(WHISPER_API_URL, headers=headers, data=audio_data, timeout=25)
-            if response.status_code == 200: return response.json().get('text', '').lower().strip()
-            print(f"Whisper API Error: Status {response.status_code}, Response: {response.text}")
-            return None
-        except requests.exceptions.RequestException as e: print(f"Network error: {e}"); time.sleep(1)
-    return None
+# --- NEW: Replaced query_whisper with Google Speech Recognition ---
+def recognize_speech(wav_data):
+    """Transcribes audio data using Google's Web Speech API."""
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(io.BytesIO(wav_data)) as source:
+        audio = recognizer.record(source)
+    try:
+        text = recognizer.recognize_google(audio)
+        return text.lower().strip()
+    except sr.UnknownValueError:
+        print("Google Speech Recognition could not understand audio")
+        return None
+    except sr.RequestError as e:
+        print(f"Could not request results from Google service; {e}")
+        return None
 
 def listen_and_process_command(is_guarding):
     audio = pyaudio.PyAudio()
@@ -90,23 +100,29 @@ def listen_and_process_command(is_guarding):
         with wave.open(audio_buffer, 'wb') as wf:
             wf.setnchannels(CHANNELS); wf.setsampwidth(audio.get_sample_size(FORMAT)); wf.setframerate(RATE); wf.writeframes(b''.join(frames))
         wav_bytes = audio_buffer.getvalue()
-    transcription = query_whisper(wav_bytes)
+    
+    # Use the new recognition function
+    transcription = recognize_speech(wav_bytes)
+
     if transcription:
-        print(f'Whisper heard: "{transcription}"')
+        print(f'Heard: "{transcription}"')
         is_activation = all(word in transcription for word in ACTIVATION_KEYWORDS)
         is_deactivation = all(word in transcription for word in DEACTIVATION_KEYWORDS)
-        if is_activation and not guard_mode_active: last_command.append('activate')
-        elif is_deactivation and guard_mode_active: last_command.append('deactivate')
+        if is_activation and not guard_mode_active:
+            last_command.append('activate')
+        elif is_deactivation and guard_mode_active:
+            last_command.append('deactivate')
+        elif guard_mode_active:
+            last_user_response.append(transcription)
 
 def continuous_listening_thread():
     while guard_mode_active and not stop_listening_event.is_set(): listen_and_process_command(is_guarding=True)
     print("Deactivation listener has stopped.")
 
 def start_guard_mode():
-    # --- BUG FIX: Explicitly declare all global variables being modified ---
-    global guard_mode_active, stop_listening_event, next_object_id, objects, object_dossiers
+    global guard_mode_active, stop_listening_event, next_object_id, objects, object_dossiers, last_user_response
     
-    guard_mode_active = True; stop_listening_event.clear(); last_command.clear()
+    guard_mode_active = True; stop_listening_event.clear(); last_command.clear(); last_user_response.clear()
     next_object_id = 0; objects = {}; object_dossiers = {}
 
     print("\n====================================================")
@@ -142,7 +158,14 @@ def start_guard_mode():
                     if row in used_rows or col in used_cols: continue
                     object_id = object_ids[row]; objects[object_id] = input_centroids[col]; used_rows.add(row); used_cols.add(col)
                 unused_rows = set(range(D.shape[0])).difference(used_rows); unused_cols = set(range(D.shape[1])).difference(used_cols)
-                for row in unused_rows: object_id = object_ids[row]; del objects[object_id]; del object_dossiers[object_id]
+                if D.shape[0] > len(input_centroids):
+                    for row in unused_rows:
+                        object_id = object_ids[row]
+                        if object_id in objects:
+                            del objects[object_id]
+                        if object_id in object_dossiers:
+                            del object_dossiers[object_id]
+
                 for col in unused_cols:
                     objects[next_object_id] = input_centroids[col]
                     object_dossiers[next_object_id] = {'id': next_object_id, 'history': deque(maxlen=INTRUDER_PERSISTENCE_FRAMES), 'handler': None}
@@ -150,10 +173,13 @@ def start_guard_mode():
 
             for live_obj in live_objs:
                 centroid = (live_obj['facial_area']['x'] + live_obj['facial_area']['w'] // 2, live_obj['facial_area']['y'] + live_obj['facial_area']['h'] // 2)
-                object_id_for_face = next((oid for oid, c in objects.items() if tuple(c) == centroid), None)
+                object_id_for_face = next((oid for oid, c in objects.items() if np.array_equal(c, centroid)), None)
                 if object_id_for_face is None: continue
 
                 name, _ = find_best_match(live_obj["embedding"])
+                
+                if object_id_for_face not in object_dossiers: continue
+                
                 object_dossiers[object_id_for_face]['history'].append(name)
                 history = object_dossiers[object_id_for_face]['history']
                 stable_name = max(set(history), key=history.count) if history else "INTRUDER"
@@ -163,12 +189,21 @@ def start_guard_mode():
                     if handler is None:
                         handler = Intruder(object_id_for_face)
                         object_dossiers[object_id_for_face]['handler'] = handler
+
+                    user_input = last_user_response.popleft() if last_user_response else None
+                    should_speak = False
                     
-                    if handler.escalate():
-                        dialogue = generate_escalation_dialogue(handler.id, handler.escalation_level)
+                    if user_input:
+                        should_speak = True
+                        handler.last_interaction_time = time.time()
+                    elif handler.should_escalate_on_timer():
+                        should_speak = True
+                        handler.increment_level_and_update_time()
+
+                    if should_speak:
+                        dialogue = generate_escalation_dialogue(handler.id, handler.escalation_level, user_input=user_input)
                         speak(dialogue)
 
-                # FIX for "too many values to unpack"
                 facial_area = live_obj['facial_area']
                 x, y, w, h = facial_area['x'], facial_area['y'], facial_area['w'], facial_area['h']
                 
@@ -177,7 +212,6 @@ def start_guard_mode():
                 cv2.rectangle(frame, (x, y - 35), (x + w, y), box_color, cv2.FILLED)
                 cv2.putText(frame, stable_name, (x + 6, y - 6), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 1)
         except Exception as e:
-            # THIS IS THE FIX: Print the error instead of ignoring it.
             print(f"❌ Error in main loop: {e}")
 
         cv2.imshow('Security Feed - Press Q to Quit', frame)
@@ -190,12 +224,11 @@ def start_guard_mode():
     listener_thread.join(timeout=1.0); print("\n--- 🛑 GUARD MODE DEACTIVATED ---")
 
 def main():
-    # --- BUG FIX: Explicitly declare all global variables being modified ---
     global guard_mode_active, stop_listening_event
 
-    if not API_KEY or not os.getenv("GOOGLE_API_KEY"):
-        print("!!! FATAL ERROR: API key(s) not found in .env file. !!!")
-        print("Please ensure both HUGGING_FACE_API_KEY and GOOGLE_API_KEY are set in your .env file.")
+    # Updated API key check
+    if not os.getenv("GOOGLE_API_KEY"):
+        print("!!! FATAL ERROR: GOOGLE_API_KEY not found in .env file. !!!")
         sys.exit(1)
     
     initialize_tts(); precompute_known_faces()
@@ -219,4 +252,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
