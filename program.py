@@ -13,34 +13,22 @@ from dotenv import load_dotenv
 from collections import deque
 from deepface import DeepFace
 from scipy.spatial import distance as dist
-
-# --- Load Environment Variables FIRST ---
-load_dotenv()
-
-# --- Import our custom modules ---
 from face_utils import precompute_known_faces, find_best_match
 from llm_handler import generate_escalation_dialogue
 from intent import load_intent_model, predict_intent
-# --- Configuration ---
+
+load_dotenv()
+
 ACTIVATION_KEYWORDS = ["protect", "room"]
 DEACTIVATION_KEYWORDS = ["stop", "protecting"]
 CAMERA_WARMUP_TIME = 2.0
-
-# --- NEW HYPERPARAMETER ---
-FRAMES_TO_PROCESS_PER_SECOND = 2  # Process N frames every second to reduce load and prevent freezing
-
+FRAMES_TO_PROCESS_PER_SECOND = 2  # two frames per second in the webcam for better performance withoout hanging
 MODEL_NAME = "VGG-Face"
 DETECTOR_BACKEND = 'opencv'
-
-# --- Intruder Management Config: TUNED FOR RESPONSIVENESS ---
-INTRUDER_PERSISTENCE_FRAMES = 5
+INTRUDER_PERSISTENCE_FRAMES = 3
 ESCALATION_DELAY_SECONDS = 8
-
-# Audio recording parameters
 FORMAT = pyaudio.paInt16
 CHANNELS = 1; RATE = 16000; CHUNK = 1024; RECORD_SECONDS = 4
-
-# --- Global State & Tracking ---
 guard_mode_active = False
 stop_listening_event = threading.Event()
 last_command = deque(maxlen=1)
@@ -68,7 +56,7 @@ class Intruder:
         self.last_interaction_time = time.time()
 
 def speak(audio_file):
-    """Plays the generated audio file and then deletes it."""
+    # Plays the generated audio file and then deletes it.
     try:
         print(f"▶️ Playing audio...")
         playsound(audio_file)
@@ -77,7 +65,7 @@ def speak(audio_file):
         print(f"❌ Could not play audio: {e}")
 
 def recognize_speech(wav_data):
-    """Transcribes audio data using Google's Web Speech API."""
+    # Transcribes audio data using Google's Web Speech API.
     recognizer = sr.Recognizer()
     with sr.AudioFile(io.BytesIO(wav_data)) as source:
         audio = recognizer.record(source)
@@ -136,11 +124,9 @@ def start_guard_mode():
     
     if not cap.isOpened():
         print("Error: Could not open webcam."); guard_mode_active = False; return
-
-    # --- Frame skipping logic setup ---
     frame_count = 0
     fps = cap.get(cv2.CAP_PROP_FPS)
-    if fps == 0: fps = 30 # Assume a standard 30 FPS if not reported
+    if fps == 0: fps = 30 
     frame_skip_interval = max(1, int(fps / FRAMES_TO_PROCESS_PER_SECOND))
     last_known_faces.clear()
 
