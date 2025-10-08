@@ -17,38 +17,44 @@ from face_utils import precompute_known_faces, find_best_match
 from llm_handler import generate_escalation_dialogue
 from intent import load_intent_model, predict_intent
 
-load_dotenv()
+load_dotenv()  #loads the environment variables
 
-ACTIVATION_KEYWORDS = ["protect", "room"]
-DEACTIVATION_KEYWORDS = ["stop", "protecting"]
-CAMERA_WARMUP_TIME = 2.0
+ACTIVATION_KEYWORDS = ["protect", "room"] # for checking it sentence contains "protect" and "room", it has its problems which are dealt with
+DEACTIVATION_KEYWORDS = ["stop", "protecting"] 
+CAMERA_WARMUP_TIME = 2.0 #2 secs for cam to warm up
 FRAMES_TO_PROCESS_PER_SECOND = 2  # two frames per second in the webcam for better performance withoout hanging
-MODEL_NAME = "VGG-Face"
-DETECTOR_BACKEND = 'opencv'
-INTRUDER_PERSISTENCE_FRAMES = 3
-ESCALATION_DELAY_SECONDS = 8
-FORMAT = pyaudio.paInt16
+MODEL_NAME = "VGG-Face" #face recognition model
+DETECTOR_BACKEND = 'opencv' #face detector
+INTRUDER_PERSISTENCE_FRAMES = 3 #A person must be recognized as an intruder for 3 frames before dialogue starts
+ESCALATION_DELAY_SECONDS = 8 #the dialogue will escalate after 8 seconds of no user response.
+
+#  Standard settings for microphone input using pyaudio (16-bit, 1 channel, 16kHz sample rate, 4 seconds of recording).
+FORMAT = pyaudio.paInt16 
 CHANNELS = 1; RATE = 16000; CHUNK = 1024; RECORD_SECONDS = 4
+
+#to be used later : Defines the main state variables to control the program, threads, and track recent user commands/responses.
 guard_mode_active = False
 stop_listening_event = threading.Event()
 last_command = deque(maxlen=1)
 last_user_response = deque(maxlen=1)
 next_object_id = 0
+
+#Dictionaries used for Object Tracking. objects stores face centroid locations; object_dossiers stores an intruder's history, name, and their escalation handle
 objects = {}
 object_dossiers = {}
 last_known_faces = [] # Store the last detected face info to draw between processing frames
 
-class Intruder:
+class Intruder: #A class to manage the escalation state for a detected intruder. Each persistent intruder gets their own Intruder instance.
     def __init__(self, object_id):
         self.id = object_id
-        self.escalation_level = 0
+        self.escalation_level = 0 #Tracks the current level of warning (1, 2, or 3) and when the last dialogue (from the LLM) occurred.
         self.last_interaction_time = 0
         self.name = "INTRUDER"
 
     def should_escalate_on_timer(self):
-        return time.time() - self.last_interaction_time > ESCALATION_DELAY_SECONDS
+        return time.time() - self.last_interaction_time > ESCALATION_DELAY_SECONDS #Returns True if the time since the last interaction exceeds ESCALATION_DELAY_SECONDS, triggering the next warning level.
 
-    def increment_level_and_update_time(self):
+    def increment_level_and_update_time(self): #Moves the intruder to the next warning level (up to 3) and resets the timer.
         if self.escalation_level == 0:
              self.escalation_level = 1
         else:
@@ -58,11 +64,11 @@ class Intruder:
 def speak(audio_file):
     # Plays the generated audio file and then deletes it.
     try:
-        print(f"▶️ Playing audio...")
+        print(f" PLAYING AUDIO...")
         playsound(audio_file)
         os.remove(audio_file)
     except Exception as e:
-        print(f"❌ Could not play audio: {e}")
+        print(f"Could NOT play audio: {e}")
 
 def recognize_speech(wav_data):
     # Transcribes audio data using Google's Web Speech API.
@@ -79,7 +85,7 @@ def recognize_speech(wav_data):
         print(f"Could not request results from Google service; {e}")
         return None
 
-def listen_and_process_command(is_guarding):
+def listen_and_process_command(model,tokenizer,label_encoder,is_guarding):
     audio = pyaudio.PyAudio()
     stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
     prefix = "🚨" if is_guarding else "🎤"; print(f"{prefix} Listening...")
@@ -95,11 +101,10 @@ def listen_and_process_command(is_guarding):
 
     if transcription:
         print(f'Heard: "{transcription}"')
-        is_activation = all(word in transcription for word in ACTIVATION_KEYWORDS)
-        is_deactivation = all(word in transcription for word in DEACTIVATION_KEYWORDS)
-        if is_activation and not guard_mode_active:
+        intent = predict_intent(model, tokenizer, label_encoder, transcription)
+        if intent == 'start_guarding' and not guard_mode_active:
             last_command.append('activate')
-        elif is_deactivation and guard_mode_active:
+        elif intent == 'stop_guarding' and guard_mode_active:
             last_command.append('deactivate')
         elif guard_mode_active:
             last_user_response.append(transcription)
@@ -254,13 +259,12 @@ def main():
     precompute_known_faces()
     print("🚀 Security Agent Initialized.\n")
     model, tokenizer, label_encoder = load_intent_model()
-
     while True:
         try:
             if not guard_mode_active:
                 print("--- WAITING FOR ACTIVATION ---")
                 print(f"(Say '{' '.join(ACTIVATION_KEYWORDS)} ...')")
-                listen_and_process_command(is_guarding=False)
+                listen_and_process_command(model,tokenizer,label_encoder,is_guarding=False)
                 try:
                     if last_command.popleft() == 'activate': start_guard_mode()
                 except IndexError: pass
