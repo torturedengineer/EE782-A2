@@ -20,7 +20,7 @@ load_dotenv()
 # --- Import our custom modules ---
 from face_utils import precompute_known_faces, find_best_match
 from llm_handler import generate_escalation_dialogue
-
+from intent import load_intent_model, predict_intent
 # --- Configuration ---
 ACTIVATION_KEYWORDS = ["protect", "room"]
 DEACTIVATION_KEYWORDS = ["stop", "protecting"]
@@ -267,6 +267,7 @@ def main():
     
     precompute_known_faces()
     print("🚀 Security Agent Initialized.\n")
+    model, tokenizer, label_encoder = load_intent_model()
 
     while True:
         try:
@@ -286,4 +287,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

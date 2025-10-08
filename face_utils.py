@@ -6,7 +6,7 @@ from deepface import DeepFace
 KNOWN_FACES_DIR = "faces"
 MODEL_NAME = "VGG-Face"
 DETECTOR_BACKEND = 'opencv'
-RECOGNITION_THRESHOLD = 0.60
+RECOGNITION_THRESHOLD = 0.40
 ENCODINGS_CACHE_PATH = "face_encodings.pkl"
 
 known_face_encodings = []
@@ -14,19 +14,27 @@ known_face_names = []
 
 def precompute_known_faces():
     #first checks if empty, and if empty then computes the embeddings which is not what i want
+    n = input("DO YOU WANT TO RECOMPUTE FACE EMBEDDINGS? (y/n): ").strip().lower()
     global known_face_encodings, known_face_names
-    # if os.path.exists(ENCODINGS_CACHE_PATH):
-    #     print("Loading face encodings from cache...")
-    #     try:
-    #         with open(ENCODINGS_CACHE_PATH, "rb") as f:
-    #             cached_data = pickle.load(f)
-    #             known_face_encodings = cached_data["encodings"]
-    #             known_face_names = cached_data["names"]
-    #             print("Embeddings loaded from cache.")
-    #             return
-    #     except Exception as e:
-    #         print(f"Could not load cache, re-computing faces. Error: {e}")
-
+    if n != 'y':
+        if os.path.exists(ENCODINGS_CACHE_PATH):
+            print("Loading face encodings from cache...")
+            try:
+                with open(ENCODINGS_CACHE_PATH, "rb") as f:
+                    cached_data = pickle.load(f)
+                    known_face_encodings = cached_data["encodings"]
+                    known_face_names = cached_data["names"]
+                    print("Embeddings loaded from cache.")
+                    return
+            except Exception as e:
+                print(f"Could not load cache, re-computing faces. Error: {e}")   
+                compute_faces()     
+                return        
+    else:
+        compute_faces()
+        return 
+def compute_faces():
+    global known_face_encodings, known_face_names
     print("Computing embeddings for known faces... This may take a moment.")
     temp_encodings = []
     temp_names = []
@@ -178,4 +186,3 @@ def find_best_match(live_embedding):
 #         return known_face_names[min_distance_index], min_distance
 #     else:
 #         return "INTRUDER", min_distance
-

@@ -1,0 +1,310 @@
+start_guarding	Please protect the room
+start_guarding	Start guarding the room now
+start_guarding	Can you secure my room?
+start_guarding	Activate the guard mode
+start_guarding	Enable room protection
+start_guarding	Begin monitoring the room
+start_guarding	Watch over the room
+start_guarding	Keep an eye on the room
+start_guarding	Make sure the room is safe
+start_guarding	Start room surveillance
+start_guarding	Keep the room guarded
+start_guarding	Enable security in the room
+start_guarding	Initiate room protection
+start_guarding	Protect the room immediately
+start_guarding	Activate security for the room
+start_guarding	Turn on guarding for the room
+start_guarding	Guard my room please
+start_guarding	Please start the guard system
+start_guarding	Enable defense for the room
+start_guarding	Lock the room and guard it
+start_guarding	Set the room to guarded mode
+start_guarding	Activate watch mode in the room
+start_guarding	Secure the room now
+start_guarding	Watch and protect the room
+start_guarding	Protect my room now
+start_guarding	Please monitor the room
+start_guarding	Turn on room security system
+start_guarding	Keep the room safe please
+start_guarding	Activate the protection system for the room
+start_guarding	Make sure nobody enters the room
+start_guarding	Keep guarding the room
+start_guarding	Continue guarding the room
+start_guarding	Deploy security in the room
+start_guarding	Initiate guard mode
+start_guarding	Engage room surveillance
+start_guarding	Enable room defense
+start_guarding	Start safety monitoring
+start_guarding	Run the security check
+start_guarding	Activate perimeter defense
+start_guarding	Set the room to alert mode
+start_guarding	Turn on the guard systems
+start_guarding	Secure the space thoroughly
+start_guarding	Lock down and protect the room
+start_guarding	Activate security protocols
+start_guarding	Keep the area under surveillance
+start_guarding	Launch the guarding system
+start_guarding	Set surveillance to active
+start_guarding	Observe and guard the room
+stop_guarding	Don't protect my room
+stop_guarding	Stop guarding immediately
+stop_guarding	End the room protection
+stop_guarding	Deactivate the guard system
+stop_guarding	Disable room security
+stop_guarding	Stop room surveillance
+stop_guarding	Turn off guarding for my room
+stop_guarding	Please end the protection
+stop_guarding	Cancel room guarding
+stop_guarding	Stop the guarding now
+stop_guarding	Disable the security system
+stop_guarding	Remove guard from my room
+stop_guarding	Turn off room defense
+stop_guarding	Stop watching over the room
+stop_guarding	Cancel room monitoring
+stop_guarding	End guarding mode
+stop_guarding	Please stop guarding my room
+stop_guarding	Deactivate room monitoring
+stop_guarding	Stop protection for the room
+stop_guarding	No need to guard the room
+stop_guarding	Disable guard mode
+stop_guarding	Stop room watch immediately
+stop_guarding	End security for the room
+stop_guarding	Please disable room defense
+stop_guarding	Cancel room protection
+stop_guarding	Turn off watching the room
+stop_guarding	Stop room security system
+stop_guarding	Deactivate guarding now
+stop_guarding	Please remove room security
+stop_guarding	No guarding required
+stop_guarding	Cease protecting the room
+stop_guarding	Turn off the security system
+stop_guarding	Shut down the guard system
+stop_guarding	Cease surveillance
+stop_guarding	End security operations
+stop_guarding	Cancel the guard mode
+stop_guarding	Remove all security measures
+stop_guarding	Stop the room's protection
+stop_guarding	Disengage the guard system
+stop_guarding	Shut off the security protocols
+stop_guarding	Terminate monitoring
+stop_guarding	Turn off perimeter defense
+stop_guarding	Deactivate surveillance systems
+stop_guarding	Cease all guarding activities
+stop_guarding	Safety is no longer needed
+stop_guarding	Turn off security measures
+stop_guarding	Stop all security features
+stop_guarding	Deactivate the guard system
+stop_guarding	Cancel the rule for security
+stop_guarding	Stop monitoring the room
+stop_guarding	Turn the guard system off
+other	What is the weather today?
+other	Play some music
+other	I want to cook food
+other	Is the room safe?
+other	Tell me the time
+other	Open the window
+other	How much is the temperature?
+other	Set an alarm for 7 AM
+other	What's on my calendar today?
+other	Is the door locked?
+other	Turn on the lights
+other	Call my friend
+other	Remind me to buy milk
+other	How's traffic today?
+other	What news do you have?
+other	Can you tell me a joke?
+other	Start the vacuum cleaner
+other	Make a phone call
+other	Set the thermostat to 22 degrees
+other	Play my favorite playlist
+other	Open the curtains
+other	Find a restaurant nearby
+other	Search the web for AI news
+other	Show me today's schedule
+other	What's the latest email?
+other	Lock my phone
+other	Turn off the fan
+other	Book a taxi for me
+other	Send a message to John
+other	What movies are playing tonight?
+other	How do I get to the nearest hospital?
+other	Turn on the TV
+other	Play some jazz music
+other	Remind me to call dad
+other	Find coffee shops nearby
+other	Schedule a haircut
+other	Check the stock prices
+other	Turn off the lights
+other	Set an alarm for 6:30 AM
+other	Open the blinds
+other	Search for nearby cinemas
+other	Tell me a fun fact
+other	Schedule a meeting
+other	Turn on the heater
+other	Play the news update
+other	Search for restaurants
+other	Set a reminder to water plants
+other	Turn on the air purifier
+other	Find the nearest petrol station
+other	Search for new movies
+other	Turn off the TV
+other	Send a message to Alice
+other	How's the traffic in city?
+start_guarding	Don't stop guarding the room
+start_guarding	Never disable the room's protection
+start_guarding	Do not turn off security
+start_guarding	Please don't deactivate the guard
+start_guarding	Make sure not to stop guarding
+start_guarding	Do not cancel room surveillance
+start_guarding	Do not remove guard from the room
+start_guarding	Keep guarding, do not stop
+start_guarding	Do not end security monitoring
+start_guarding	Don't disable the room's defense
+start_guarding	Do not stop watching the room
+start_guarding	Please don't deactivate security system
+start_guarding	Do not cancel guarding mode
+start_guarding	Don't end the guard system
+start_guarding	Never stop room protection
+start_guarding	Do not discontinue security
+start_guarding	Please keep monitoring and do not stop
+start_guarding	Do not cease guarding the room
+start_guarding	Don't turn off the security system
+start_guarding	Don't disable perimeter security
+start_guarding	Please ensure guarding continues
+start_guarding	Don't deactivate the watch mode
+start_guarding	Do not stop the alarm system
+start_guarding	Do not remove the security settings
+start_guarding	Please keep guard system active
+start_guarding	Don't break the security protocol
+start_guarding	Do not interrupt guard coverage
+start_guarding	Do not turn off room monitoring
+start_guarding	Don't discontinue guarding measures
+start_guarding	Do not turn off protective mode
+start_guarding	Please don't stop room defense
+start_guarding	Don't halt security enforcement
+start_guarding	Do not end surveillance prematurely
+start_guarding	Don't deactivate alert mode
+start_guarding	Please keep the guard system running
+start_guarding	Don't interrupt the security watch
+start_guarding	Do not turn off watching
+start_guarding	Don't cancel security coverage
+start_guarding	Please don't disable room monitoring
+start_guarding	Do not switch off guard mode
+start_guarding	Don't disable alarm system
+start_guarding	Please don't remove monitoring system
+start_guarding	Do not stop the protective watch
+start_guarding	Don't halt room defense
+start_guarding	Do not cease alarm monitoring
+start_guarding	Don't stop protective services
+start_guarding	Please keep security active
+start_guarding	Do not disable room guard mode
+stop_guarding	Don't protect my room anymore
+stop_guarding	Never turn on room security
+stop_guarding	Do not activate guard mode
+stop_guarding	Please don't start the security system
+stop_guarding	Don't begin room guarding
+stop_guarding	Do not enable room protection
+stop_guarding	Please stop all guarding activities
+stop_guarding	Don't deploy the security system
+stop_guarding	Do not engage the guard
+stop_guarding	Please cancel the surveillance now
+stop_guarding	Don't switch on the room security
+stop_guarding	Do not start the alarm system
+stop_guarding	Please turn off guarding features
+stop_guarding	Don't initiate security monitoring
+stop_guarding	Do not activate defense mode
+stop_guarding	Please halt all guarding functions
+stop_guarding	Don't enable the guard system
+stop_guarding	Do not start watching the room
+stop_guarding	Please stop room defense now
+stop_guarding	Don't turn on protective mode
+stop_guarding	Do not enable the alarm system
+stop_guarding	Please cancel all protection
+stop_guarding	Don't activate room defense
+stop_guarding	Do not enable alarm monitoring
+stop_guarding	Please stop the guard service
+stop_guarding	Don't activate the watch mode
+stop_guarding	Do not begin protection
+stop_guarding	Please disable room surveillance
+stop_guarding	Don't turn on robot guard
+stop_guarding	Do not deploy alarm system
+stop_guarding	Please stop security enforce now
+stop_guarding	Don't enable the security protocol
+stop_guarding	Do not start guard coverage
+stop_guarding	Please cancel monitoring system
+stop_guarding	Don't start perimeter defense
+stop_guarding	Do not activate guard watch
+stop_guarding	Please halt room monitoring
+stop_guarding	Don't begin security checks
+stop_guarding	Do not activate protective services
+stop_guarding	Please stop all monitoring devices
+stop_guarding	Don't initiate alarm monitoring
+stop_guarding	Do not enable room alerts
+stop_guarding	Please halt all guard functions
+stop_guarding	Don't activate protective system
+stop_guarding	Do not begin monitoring the room
+stop_guarding	Please stop defense protocols
+stop_guarding	Don't enable alarm service
+stop_guarding	Do not begin guard mode
+stop_guarding	Please discontinue all alarms
+stop_guarding	Don't activate surveillance system
+stop_guarding	Do not start guard patrol
+stop_guarding	Please disable room defense
+other	What is the capital of France?
+other	Tell me a funny story.
+other	How do I bake a chocolate cake?
+other	What time does the train arrive?
+other	Play some relaxing music.
+other	How’s the weather in New York?
+other	Translate ‘hello’ to Spanish.
+other	Book a flight to Paris.
+other	When is the next holiday?
+other	How tall is Mount Everest?
+other	Find me a good sushi restaurant.
+other	Set a reminder for tomorrow’s meeting.
+other	What’s the score of the football game?
+other	How many calories in an apple?
+other	Who won the Oscar for best actor?
+other	Where is the nearest gas station?
+other	Tell me today’s news headlines.
+other	How do I change a tire?
+other	What’s the exchange rate for USD to INR?
+other	Recommend a good sci-fi book.
+other	Tell me a joke about cats.
+other	How to plant a tomato seed?
+other	What is quantum physics?
+other	Find pictures of puppies.
+other	What music is trending now?
+other	How do I fix a leaking faucet?
+other	When was the Declaration of Independence signed?
+other	Open my email inbox.
+other	Teach me to speak French.
+other	Who is the CEO of Tesla?
+other	Where can I buy a new laptop?
+other	What are popular tourist spots in London?
+other	How do I reset my password?
+other	Show me cooking recipes with chicken.
+other	What is the tallest building in the world?
+other	Play the latest pop songs.
+other	How to meditate properly?
+other	Who is the president of the USA?
+other	What is blockchain technology?
+other	How do I improve my memory?
+other	What’s the weather forecast for tomorrow?
+other	Show me pictures of Hawaii.
+other	How do I tie a tie?
+other	Tell me about the solar system.
+other	What is machine learning?
+other	Find me a good thriller movie.
+other	How do I prepare for a job interview?
+other	Tell me the latest tech news.
+other	Where is the Eiffel Tower located?
+other	What is artificial intelligence?
+other	Recommend a romantic movie.
+other	How to solve a Rubik’s cube?
+start_guarding	Don't stop guarding
+start_guarding	Dont stop guarding
+start_guarding	Never stop guarding
+start_guarding	Please don't disable guarding
+start_guarding	Keep guarding, don't stop
+start_guarding	Continue guarding the room
